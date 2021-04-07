@@ -268,7 +268,7 @@ bool CTCPClient::Send(const char* pData, const size_t uSize) const
    int total = 0;
    do
    {
-      const int flags = 0;
+      const int flags = MSG_NOSIGNAL;
       int nSent;
 
       nSent = send(m_ConnectSocket, pData + total, uSize - total, flags);
