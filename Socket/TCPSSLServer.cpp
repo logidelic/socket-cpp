@@ -55,8 +55,21 @@ bool CTCPSSLServer::Listen(SSLSocket& ClientSocket, size_t msec /*= ACCEPT_WAIT_
       /* Load server certificate into the SSL context. */
       if (!m_strSSLCertFile.empty())
       {
-         if (SSL_CTX_use_certificate_file(ClientSocket.m_pCTXSSL,
-            m_strSSLCertFile.c_str(), SSL_FILETYPE_PEM) <= 0)
+         int r;
+
+         if(m_strSSLCertFile.substr(0,1) == ":") {
+            // If the "filename" is prepended by ":" then this is actually an in-memory PEM buffer
+            auto buf = m_strSSLCertFile.substr(1);
+            auto cbio = BIO_new_mem_buf((void*)buf.c_str(), -1);
+            auto cert = PEM_read_bio_X509(cbio, NULL, 0, NULL);
+            BIO_free(cbio);
+            if(!cert) throw std::runtime_error("CTCPSSLServer::Listen - Error reading cert from buf");
+            r = SSL_CTX_use_certificate(ClientSocket.m_pCTXSSL, cert);
+         } else {
+            r = SSL_CTX_use_certificate_file(ClientSocket.m_pCTXSSL, m_strSSLCertFile.c_str(), SSL_FILETYPE_PEM);
+         }
+
+         if (r <= 0)
          {
             if (m_eSettingsFlags & ENABLE_LOG)
                m_oLog("[TCPSSLServer][Error] Loading cert file failed.");
@@ -82,8 +95,22 @@ bool CTCPSSLServer::Listen(SSLSocket& ClientSocket, size_t msec /*= ACCEPT_WAIT_
       /* Load the server private-key into the SSL context. */
       if (!m_strSSLKeyFile.empty())
       {
-         if (SSL_CTX_use_PrivateKey_file(ClientSocket.m_pCTXSSL,
-            m_strSSLKeyFile.c_str(), SSL_FILETYPE_PEM) <= 0)
+         int r;
+
+         if(m_strSSLKeyFile.substr(0,1) == ":") {
+            // If the "filename" is prepended by ":" then this is actually an in-memory PEM buffer
+            auto buf = m_strSSLKeyFile.substr(1);
+            auto cbio = BIO_new_mem_buf((void*)buf.c_str(), -1);
+            auto cert = PEM_read_bio_RSAPrivateKey(cbio, NULL, 0, NULL);
+            BIO_free(cbio);
+            if(!cert) throw std::runtime_error("CTCPSSLServer::Listen - Error reading key from buf");
+            r = SSL_CTX_use_RSAPrivateKey(ClientSocket.m_pCTXSSL, cert);
+         } else {
+            r = SSL_CTX_use_PrivateKey_file(ClientSocket.m_pCTXSSL,
+                     m_strSSLKeyFile.c_str(), SSL_FILETYPE_PEM);
+         }
+
+         if (r <= 0)
          {
             if (m_eSettingsFlags & ENABLE_LOG)
                m_oLog("[TCPSSLServer][Error] Loading key file failed.");
